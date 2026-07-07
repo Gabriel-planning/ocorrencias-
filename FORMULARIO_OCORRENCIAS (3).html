@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Registro de Ocorrência</title>
+<style>
+  :root {
+    --blue: #1F4E79; --blue-light: #2e6da4; --blue-bg: #EBF3FB;
+    --orange: #C55A11; --orange-bg: #FFF0E6;
+    --green: #375623; --green-bg: #EBF5E1;
+    --gray: #f0f2f5; --border: #ddd;
+    --radius: 12px; --shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, Arial, sans-serif; background: var(--gray); color: #222; font-size: 15px; min-height: 100vh; }
+
+  /* HEADER */
+  header {
+    background: var(--blue); color: #fff;
+    padding: 16px 18px 14px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header h1 { font-size: 17px; font-weight: bold; }
+  header .sub { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+
+  /* STATUS DE CARREGAMENTO */
+  #loading-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: calc(100vh - 60px); padding: 30px; text-align: center; gap: 16px;
+  }
+  .spinner {
+    width: 44px; height: 44px; border: 4px solid #ddd;
+    border-top-color: var(--blue); border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-screen p { color: #666; font-size: 14px; }
+  #error-screen {
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    min-height: calc(100vh - 60px); padding: 30px; text-align: center; gap: 12px;
+  }
+  #error-screen .icon { font-size: 48px; }
+  #error-screen p { color: #666; font-size: 14px; line-height: 1.6; }
+  #error-screen button { background: var(--blue); color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-size: 15px; font-weight: bold; cursor: pointer; }
+
+  /* CONTAINER PRINCIPAL */
+  #app { display: none; padding: 16px; max-width: 480px; margin: 0 auto; }
+
+  /* STEPS INDICATOR */
+  .steps {
+    display: flex; align-items: center; margin-bottom: 20px; padding: 0 4px;
+  }
+  .step-dot {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: bold;
+    background: #ddd; color: #999;
+    transition: background .3s, color .3s;
+  }
+  .step-dot.active { background: var(--blue); color: #fff; }
+  .step-dot.done { background: var(--green); color: #fff; }
+  .step-dot.done::after { content: '✓'; }
+  .step-dot.done span { display: none; }
+  .step-line { flex: 1; height: 3px; background: #ddd; transition: background .3s; }
+  .step-line.done { background: var(--green); }
+
+  /* ETAPA */
+  .step { display: none; }
+  .step.active { display: block; }
+
+  /* CARD */
+  .card {
+    background: #fff; border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 15px; font-weight: bold; color: var(--blue);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+
+  /* BUSCA */
+  .radio-row {
+    display: flex; gap: 0; margin-bottom: 12px;
+    background: var(--gray); border-radius: 10px; padding: 4px;
+  }
+  .radio-row label {
+    flex: 1; text-align: center; cursor: pointer;
+    padding: 8px 4px; font-size: 13px; color: #666;
+    border-radius: 8px; transition: background .2s, color .2s; user-select: none;
+  }
+  .radio-row input[type=radio] { display: none; }
+  .radio-row input[type=radio]:checked + span {
+    /* handled via JS class */
+  }
+  .radio-row label.checked { background: #fff; color: var(--blue); font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+  .search-wrap { display: flex; gap: 8px; }
+  .search-wrap input {
+    flex: 1; padding: 13px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 15px; outline: none;
+    transition: border-color .2s;
+  }
+  .search-wrap input:focus { border-color: var(--blue); }
+  .btn-search {
+    background: var(--blue); color: #fff; border: none;
+    border-radius: 10px; padding: 13px 18px; font-size: 15px;
+    font-weight: bold; cursor: pointer; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-search:active { opacity: .85; }
+
+  /* RESULTADOS */
+  #results-list { display: flex; flex-direction: column; gap: 10px; }
+  .result-row {
+    background: #fff; border: 2px solid var(--border);
+    border-radius: var(--radius); padding: 14px; cursor: pointer;
+    transition: border-color .2s, background .2s;
+    box-shadow: var(--shadow);
+  }
+  .result-row:active { background: var(--blue-bg); }
+  .result-row.selected { border-color: var(--blue); background: var(--blue-bg); }
+  .result-nota { font-weight: bold; font-size: 16px; color: var(--blue); margin-bottom: 6px; }
+  .result-info { display: flex; flex-direction: column; gap: 3px; }
+  .result-info span { font-size: 13px; color: #555; }
+  .result-info strong { color: #222; }
+  .select-hint { font-size: 12px; color: #aaa; margin-top: 6px; text-align: right; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: #aaa; font-size: 14px; }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+
+  /* BOTÃO CONTINUAR FIXO */
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; padding: 12px 16px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    display: none; z-index: 50;
+  }
+  .bottom-bar.visible { display: block; }
+
+  /* CAMPOS FORMULÁRIO */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block; font-size: 13px; font-weight: bold;
+    color: #444; margin-bottom: 6px;
+  }
+  .field .opt { font-size: 11px; color: #aaa; font-weight: normal; margin-left: 4px; }
+  .field select, .field input[type=text], .field textarea {
+    width: 100%; padding: 13px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 15px; font-family: inherit;
+    outline: none; appearance: none; -webkit-appearance: none;
+    background: #fff; transition: border-color .2s;
+  }
+  .field select:focus, .field input[type=text]:focus, .field textarea:focus {
+    border-color: var(--blue);
+  }
+  .field textarea { resize: none; height: 90px; }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  /* FOTO */
+  .foto-btn {
+    width: 100%; padding: 16px; border: 2px dashed var(--border);
+    border-radius: 10px; background: #fafafa; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    color: #888; font-size: 14px; font-weight: bold;
+    transition: border-color .2s, color .2s;
+  }
+  .foto-btn:active { border-color: var(--blue); color: var(--blue); }
+  .foto-btn .ficon { font-size: 24px; }
+  #foto-input { display: none; }
+  #foto-preview { width: 100%; border-radius: 10px; margin-top: 10px; display: none; }
+
+  /* NOTA SELECIONADA (topo etapa 2) */
+  .nota-card {
+    background: var(--blue); color: #fff;
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px;
+  }
+  .nota-card .nlabel { font-size: 11px; opacity: .75; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+  .nota-card .nnota { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+  .nota-card .nmeta { font-size: 13px; opacity: .85; }
+
+  /* RESUMO */
+  .resumo-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .resumo-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 14px; background: var(--gray); border-radius: 8px; }
+  .resumo-item .rl { font-size: 12px; color: #888; white-space: nowrap; }
+  .resumo-item .rv { font-size: 13px; font-weight: bold; color: #222; text-align: right; word-break: break-word; }
+  .resumo-item.hl { background: var(--orange-bg); }
+  .resumo-item.hl .rv { color: var(--orange); }
+  .resumo-item.green { background: var(--green-bg); }
+  .resumo-item.green .rv { color: var(--green); }
+
+  /* MSG PREVIEW */
+  .msg-box {
+    background: #DCF8C6; border-radius: 12px 12px 12px 0;
+    padding: 14px; font-size: 13px; line-height: 1.7;
+    color: #111; white-space: pre-wrap; word-break: break-word;
+    margin-bottom: 14px; border: 1px solid #b2dfdb;
+  }
+
+  /* BOTÕES */
+  .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:active { opacity: .85; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-wa { background: #25D366; color: #fff; font-size: 16px; }
+  .btn-gray { background: #eee; color: #555; }
+  .btn-back { background: none; border: none; color: var(--blue); font-size: 14px; cursor: pointer; padding: 8px 0; display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+
+  /* SUCESSO */
+  .success-card {
+    background: var(--green-bg); border: 1.5px solid #8fbc6a;
+    border-radius: var(--radius); padding: 28px 18px; text-align: center;
+    margin-bottom: 14px;
+  }
+  .success-card .sicon { font-size: 48px; margin-bottom: 10px; }
+  .success-card p { color: var(--green); font-weight: bold; font-size: 16px; margin-bottom: 16px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.8); color: #fff; padding: 10px 20px;
+    border-radius: 20px; font-size: 13px; display: none; z-index: 200;
+    white-space: nowrap; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Registro de Ocorrência</h1>
+  <div class="sub" id="header-sub">Carregando base de dados...</div>
+</header>
+
+<!-- TELA DE CARREGAMENTO -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Carregando base de dados...</p>
+</div>
+
+<!-- TELA DE ERRO -->
+<div id="error-screen">
+  <div class="icon">⚠️</div>
+  <p id="error-msg">Não foi possível carregar a base de dados.<br>Tente novamente em instantes.</p>
+  <button onclick="carregarBase()">Tentar novamente</button>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app">
+
+  <!-- STEPS -->
+  <div class="steps">
+    <div class="step-dot active" id="dot1"><span>1</span></div>
+    <div class="step-line" id="line1"></div>
+    <div class="step-dot" id="dot2"><span>2</span></div>
+    <div class="step-line" id="line2"></div>
+    <div class="step-dot" id="dot3"><span>3</span></div>
+  </div>
+
+  <!-- ETAPA 1: BUSCA -->
+  <div class="step active" id="step1">
+    <div class="card">
+      <div class="card-title">🔍 Buscar nota</div>
+      <div class="radio-row" id="radio-row">
+        <label class="checked" onclick="setTipo('nota', this)">
+          <input type="radio" name="tipo" value="nota" checked> Nota
+        </label>
+        <label onclick="setTipo('motorista', this)">
+          <input type="radio" name="tipo" value="motorista"> Motorista
+        </label>
+        <label onclick="setTipo('produto', this)">
+          <input type="radio" name="tipo" value="produto"> Cód. Produto
+        </label>
+      </div>
+      <div class="search-wrap">
+        <input type="text" id="search-input" placeholder="Digite aqui..." inputmode="text">
+        <button class="btn-search" onclick="buscar()">Buscar</button>
+      </div>
+    </div>
+
+    <div id="results-list">
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <p>Use a busca acima para encontrar a nota.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2: OCORRÊNCIA -->
+  <div class="step" id="step2">
+    <button class="btn-back" onclick="irEtapa(1)">← Voltar à busca</button>
+    <div class="nota-card" id="nota-card"></div>
+
+    <div class="card">
+      <div class="card-title">📝 Dados da ocorrência</div>
+
+      <div class="field">
+        <label>Tipo de Ocorrência *</label>
+        <select id="tipo-ocorrencia">
+          <option value="">— Selecione —</option>
+          <option>FALTA</option>
+          <option>INVERSÃO</option>
+          <option>NÃO CARREGOU/PRODUTO NÃO ENCONTRADO</option>
+          <option>SOBRA</option>
+          <option>DEVOLUÇÃO</option>
+          <option>VALIDADE</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Qtd Itens/Cx *</label>
+        <input type="text" id="qtd-itens" placeholder="Ex: 3" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <label>Cód. Produto <span class="opt">(opcional)</span></label>
+        <input type="text" id="cod-produto" placeholder="Digite o código do produto">
+      </div>
+
+      <div class="field">
+        <label>Descrição <span class="opt">(opcional)</span></label>
+        <textarea id="descricao" placeholder="Descreva a ocorrência..."></textarea>
+      </div>
+
+      <div class="field">
+        <label>Foto <span class="opt">(opcional)</span></label>
+        <div class="foto-btn" onclick="document.getElementById('foto-input').click()">
+          <span class="ficon">📷</span>
+          <span id="foto-label-text">Adicionar foto</span>
+        </div>
+        <input type="file" id="foto-input" accept="image/*" capture="environment">
+        <img id="foto-preview" alt="Foto da ocorrência">
+      </div>
+
+      <button class="btn btn-blue" onclick="irEtapa3()">Revisar e enviar →</button>
+    </div>
+  </div>
+
+  <!-- ETAPA 3: REVISÃO -->
+  <div class="step" id="step3">
+    <button class="btn-back" onclick="irEtapa(2)">← Voltar e editar</button>
+
+    <div class="card">
+      <div class="card-title">✅ Revisar ocorrência</div>
+      <div class="resumo-list" id="resumo-list"></div>
+
+      <div style="font-size:12px; color:#888; margin-bottom:8px; font-weight:bold; text-transform:uppercase; letter-spacing:.4px;">
+        Mensagem para o WhatsApp
+      </div>
+      <div class="msg-box" id="msg-preview"></div>
+
+      <button class="btn btn-wa" onclick="enviarWhatsApp()">📲 Enviar para o WhatsApp</button>
+      <button class="btn btn-green" onclick="salvarBase()">💾 Salvar na base de controle</button>
+    </div>
+
+    <div id="success-block" style="display:none">
+      <div class="success-card">
+        <div class="sicon">✅</div>
+        <p>Ocorrência registrada com sucesso!</p>
+        <button class="btn btn-blue" onclick="novaOcorrencia()">Registrar nova ocorrência</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BARRA INFERIOR FIXA (selecionar nota) -->
+<div class="bottom-bar" id="bottom-bar">
+  <button class="btn btn-blue" style="margin:0" onclick="irEtapa2()">
+    Continuar com esta nota →
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+// Após subir no GitHub Pages, substitua pela URL raw do seu CSV:
+// Ex: https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/base.csv
+const CSV_URL = "base.csv";
+
+const WHATSAPP_NUMERO = ""; // ex: "5511999999999" — deixe vazio para o usuário escolher
+
+const HEADER_FIXO = [
+  "DtCarga","Nota","Motorista","Conferente","Separador",
+  "UserSuporte","Empresa","Loja","CodProduto","Status_Frete"
+];
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let baseDados = [];
+let tipoBusca = 'nota';
+let notaSelecionada = null;
+let registrosSalvos = [];
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', carregarBase);
+
+async function carregarBase() {
+  document.getElementById('loading-screen').style.display = 'flex';
+  document.getElementById('error-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+
+  try {
+    const res = await fetch(CSV_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    baseDados = parseCSV(text);
+    if (!baseDados.length) throw new Error('Base vazia');
+
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('header-sub').textContent = baseDados.length + ' registros carregados';
+  } catch(e) {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('error-screen').style.display = 'flex';
+    document.getElementById('error-msg').textContent =
+      'Não foi possível carregar a base de dados.\nTente novamente em instantes.\n(' + e.message + ')';
+  }
+}
+
+// ─── CSV PARSER ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const first = lines[0];
+  const sep = (first.match(/;/g)||[]).length >= (first.match(/,/g)||[]).length ? ';' : ',';
+
+  function splitLine(line) {
+    const res = []; let cur = '', q = false;
+    for (const ch of line) {
+      if (ch === '"') q = !q;
+      else if (ch === sep && !q) { res.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    res.push(cur.trim()); return res;
+  }
+
+  return lines.map(line => {
+    const vals = splitLine(line).map(v => v.replace(/^"|"$/g,'').trim());
+    const obj = {};
+    HEADER_FIXO.forEach((h,i) => obj[h] = (vals[i] === 'NULL' ? '' : vals[i]) || '');
+    return obj;
+  });
+}
+
+// ─── BUSCA ────────────────────────────────────────────────────────────────────
+function setTipo(tipo, el) {
+  tipoBusca = tipo;
+  document.querySelectorAll('.radio-row label').forEach(l => l.classList.remove('checked'));
+  el.classList.add('checked');
+  const hints = {nota:'Ex: 12345', motorista:'Nome do motorista', produto:'Código do produto'};
+  document.getElementById('search-input').placeholder = hints[tipo] || 'Digite aqui...';
+  document.getElementById('search-input').inputMode = tipo === 'nota' || tipo === 'produto' ? 'numeric' : 'text';
+}
+
+document.getElementById('search-input').addEventListener('keypress', e => {
+  if (e.key === 'Enter') { e.preventDefault(); buscar(); }
+});
+
+function norm(s) {
+  return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+function buscar() {
+  const termo = norm(document.getElementById('search-input').value);
+  if (!termo) { showToast('Digite algo para buscar'); return; }
+
+  let res = [];
+  if (tipoBusca === 'nota')       res = baseDados.filter(r => norm(r.Nota) === termo);
+  else if (tipoBusca === 'motorista') res = baseDados.filter(r => norm(r.Motorista).includes(termo));
+  else                            res = baseDados.filter(r => norm(r.CodProduto) === termo);
+
+  // Deduplicar por Nota para exibição
+  const vistas = new Set();
+  const dedup = res.filter(r => {
+    if (vistas.has(r.Nota)) return false;
+    vistas.add(r.Nota); return true;
+  });
+
+  renderResultados(dedup, res);
+}
+
+function renderResultados(lista, todosResultados) {
+  const el = document.getElementById('results-list');
+  notaSelecionada = null;
+  document.getElementById('bottom-bar').classList.remove('visible');
+
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🔎</div><p>Nenhuma nota encontrada.<br>Verifique a informação digitada.</p></div>`;
+    el._todos = [];
+    return;
+  }
+
+  el._todos = todosResultados;
+  el.innerHTML = lista.map((r,i) => `
+    <div class="result-row" onclick="selecionarNota('${r.Nota}')" id="row-${i}">
+      <div class="result-nota">Nota ${r.Nota}</div>
+      <div class="result-info">
+        <span>🚛 Motorista: <strong>${r.Motorista||'—'}</strong></span>
+        <span>🏬 Empresa: <strong>${r.Empresa||'—'}</strong></span>
+      </div>
+      <div class="select-hint">Toque para selecionar →</div>
+    </div>
+  `).join('');
+}
+
+function selecionarNota(notaNum) {
+  document.querySelectorAll('.result-row').forEach(r => r.classList.remove('selected'));
+  const rows = document.querySelectorAll('.result-row');
+  rows.forEach(r => { if (r.querySelector('.result-nota').textContent === 'Nota ' + notaNum) r.classList.add('selected'); });
+  // Pega o primeiro registro dessa nota (com mais dados)
+  const todos = document.getElementById('results-list')._todos || baseDados;
+  notaSelecionada = todos.find(r => r.Nota === notaNum) || null;
+  document.getElementById('bottom-bar').classList.add('visible');
+}
+
+// ─── ETAPAS ───────────────────────────────────────────────────────────────────
+function irEtapa(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('step'+i).classList.toggle('active', i===n);
+    const dot = document.getElementById('dot'+i);
+    dot.className = 'step-dot' + (i<n?' done':i===n?' active':'');
+  });
+  if (n > 1) document.getElementById('line1').className = 'step-line done';
+  else document.getElementById('line1').className = 'step-line';
+  if (n > 2) document.getElementById('line2').className = 'step-line done';
+  else document.getElementById('line2').className = 'step-line';
+  document.getElementById('bottom-bar').classList.remove('visible');
+  window.scrollTo(0,0);
+}
+
+function irEtapa2() {
+  if (!notaSelecionada) { showToast('Selecione uma nota primeiro'); return; }
+  irEtapa(2);
+  const r = notaSelecionada;
+  document.getElementById('nota-card').innerHTML = `
+    <div class="nlabel">Nota selecionada</div>
+    <div class="nnota">Nota ${r.Nota}</div>
+    <div class="nmeta">🚛 ${r.Motorista||'—'} &nbsp;·&nbsp; 🏬 ${r.Empresa||'—'}</div>
+  `;
+}
+
+function irEtapa3() {
+  const tipo = document.getElementById('tipo-ocorrencia').value;
+  const qtd  = document.getElementById('qtd-itens').value.trim();
+  if (!tipo) { showToast('Selecione o tipo de ocorrência'); return; }
+  if (!qtd)  { showToast('Informe a quantidade'); return; }
+  irEtapa(3);
+  renderResumo();
+}
+
+// ─── FOTO ─────────────────────────────────────────────────────────────────────
+document.getElementById('foto-input').addEventListener('change', function() {
+  const file = this.files[0]; if (!file) return;
+  document.getElementById('foto-label-text').textContent = '✓ ' + file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('foto-preview');
+    img.src = e.target.result; img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
+
+// ─── RESUMO ───────────────────────────────────────────────────────────────────
+function renderResumo() {
+  const r = notaSelecionada;
+  const tipo = document.getElementById('tipo-ocorrencia').value;
+  const qtd  = document.getElementById('qtd-itens').value.trim();
+  const cod  = document.getElementById('cod-produto').value.trim();
+  const desc = document.getElementById('descricao').value.trim();
+  const hoje = new Date().toLocaleDateString('pt-BR');
+
+  const itens = [
+    {l:'Nota',        v: r.Nota},
+    {l:'Motorista',   v: r.Motorista||'—'},
+    {l:'Empresa',     v: r.Empresa||'—'},
+    {l:'Tipo',        v: tipo, cls:'hl'},
+    {l:'Qtd Item/Cx', v: qtd,  cls:'hl'},
+  ];
+  if (cod)  itens.push({l:'Cód. Produto', v: cod});
+  if (desc) itens.push({l:'Descrição',    v: desc});
+  itens.push({l:'Status', v:'EM ABERTO', cls:'green'});
+  itens.push({l:'Data Abertura', v: hoje});
+
+  document.getElementById('resumo-list').innerHTML = itens.map(it =>
+    `<div class="resumo-item ${it.cls||''}">
+      <span class="rl">${it.l}</span>
+      <span class="rv">${it.v}</span>
+    </div>`
+  ).join('');
+
+  // Mensagem WhatsApp
+  let msg = `🚨 *OCORRÊNCIA REGISTRADA*\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `📄 *Nota:* ${r.Nota}\n`;
+  msg += `🚛 *Motorista:* ${r.Motorista||'—'}\n`;
+  msg += `🏬 *Empresa:* ${r.Empresa||'—'}\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `⚠️ *Tipo:* ${tipo}\n`;
+  msg += `🔢 *Qtd Item/Cx:* ${qtd}\n`;
+  if (cod)  msg += `📦 *Cód. Produto:* ${cod}\n`;
+  if (desc) msg += `📝 *Descrição:* ${desc}\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `🕐 *Abertura:* ${hoje}\n`;
+  msg += `🔴 *Status:* EM ABERTO`;
+
+  document.getElementById('msg-preview').textContent = msg;
+}
+
+// ─── WHATSAPP ─────────────────────────────────────────────────────────────────
+function enviarWhatsApp() {
+  const msg = document.getElementById('msg-preview').textContent;
+  const url = WHATSAPP_NUMERO
+    ? `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+// ─── SALVAR ───────────────────────────────────────────────────────────────────
+function salvarBase() {
+  const r = notaSelecionada;
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  registrosSalvos.push({
+    DtCarga:          fmt(r.DtCarga),
+    Nota:             r.Nota,
+    Motorista:        r.Motorista,
+    Conferente:       r.Conferente,
+    Separador:        r.Separador,
+    UserSuporte:      r.UserSuporte,
+    Empresa:          r.Empresa,
+    Loja:             r.Loja,
+    CodProduto:       document.getElementById('cod-produto').value.trim(),
+    TipoOcorrencia:   document.getElementById('tipo-ocorrencia').value,
+    Descricao:        document.getElementById('descricao').value.trim(),
+    QtdItemCx:        document.getElementById('qtd-itens').value.trim(),
+    DataAbertura:     hoje,
+    DataFechamento:   '',
+    Status:           'EM ABERTO',
+    Responsabilidade: ''
+  });
+  exportarCSV();
+  document.getElementById('success-block').style.display = 'block';
+  document.querySelector('.btn-green').style.display = 'none';
+  document.querySelector('.btn-wa').style.display = 'none';
+  showToast('Salvo! CSV gerado para o Excel.');
+}
+
+function exportarCSV() {
+  const cols = ["DtCarga","Nota","Motorista","Conferente","Separador","UserSuporte",
+                "Empresa","Loja","CodProduto","TipoOcorrencia","Descricao","QtdItemCx",
+                "DataAbertura","DataFechamento","Status","Responsabilidade"];
+  const header = cols.join(';');
+  const rows = registrosSalvos.map(r =>
+    cols.map(c => `"${(r[c]||'').replace(/"/g,'""')}"`).join(';')
+  );
+  const csv = '\uFEFF' + [header, ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = `ocorrencias_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function novaOcorrencia() {
+  notaSelecionada = null;
+  ['tipo-ocorrencia','qtd-itens','cod-produto','descricao'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('foto-preview').style.display = 'none';
+  document.getElementById('foto-label-text').textContent = 'Adicionar foto';
+  document.getElementById('foto-input').value = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('results-list').innerHTML =
+    `<div class="empty-state"><div class="icon">🔍</div><p>Use a busca acima para encontrar a nota.</p></div>`;
+  document.getElementById('success-block').style.display = 'none';
+  document.querySelector('.btn-green') && (document.querySelector('.btn-green').style.display = 'flex');
+  document.querySelector('.btn-wa') && (document.querySelector('.btn-wa').style.display = 'flex');
+  irEtapa(1);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function fmt(dt) {
+  if (!dt) return '—';
+  const m = dt.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : dt;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.style.display = 'none', 2500);
+}
+</script>
+</body>
+</html>
