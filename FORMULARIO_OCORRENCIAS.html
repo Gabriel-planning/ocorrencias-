@@ -424,9 +424,14 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   if (!lines.length) return [];
   const first = lines[0];
-  const sep = (first.match(/;/g)||[]).length >= (first.match(/,/g)||[]).length ? ';' : ',';
+  const countTab   = (first.match(/\t/g)||[]).length;
+  const countSemi  = (first.match(/;/g)||[]).length;
+  const countComma = (first.match(/,/g)||[]).length;
+  const sep = countTab >= countSemi && countTab >= countComma ? '\t'
+            : countSemi >= countComma ? ';' : ',';
 
   function splitLine(line) {
+    if (sep === '\t') return line.split('\t').map(v => v.trim());
     const res = []; let cur = '', q = false;
     for (const ch of line) {
       if (ch === '"') q = !q;
