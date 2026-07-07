@@ -350,7 +350,7 @@
       <div class="msg-box" id="msg-preview"></div>
 
       <button class="btn btn-wa" onclick="enviarWhatsApp()">📲 Enviar para o WhatsApp</button>
-      <button class="btn btn-green" onclick="salvarBase()">💾 Salvar na base de controle</button>
+
     </div>
 
     <div id="success-block" style="display:none">
@@ -647,9 +647,8 @@ function salvarBase() {
   });
   exportarCSV();
   document.getElementById('success-block').style.display = 'block';
-  document.querySelector('.btn-green').style.display = 'none';
   document.querySelector('.btn-wa').style.display = 'none';
-  showToast('Salvo! CSV gerado para o Excel.');
+  showToast('Ocorrência registrada!');
 }
 
 function exportarCSV() {
@@ -678,7 +677,6 @@ function novaOcorrencia() {
   document.getElementById('results-list').innerHTML =
     `<div class="empty-state"><div class="icon">🔍</div><p>Use a busca acima para encontrar a nota.</p></div>`;
   document.getElementById('success-block').style.display = 'none';
-  document.querySelector('.btn-green') && (document.querySelector('.btn-green').style.display = 'flex');
   document.querySelector('.btn-wa') && (document.querySelector('.btn-wa').style.display = 'flex');
   irEtapa(1);
 }
