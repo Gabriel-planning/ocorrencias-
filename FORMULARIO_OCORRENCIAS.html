@@ -350,6 +350,9 @@
       <div class="msg-box" id="msg-preview"></div>
 
       <button class="btn btn-wa" onclick="enviarWhatsApp()">📲 Enviar para o WhatsApp</button>
+      <div id="foto-aviso" style="display:none; background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:10px 14px; font-size:13px; color:#5d4037; margin-top:-4px;">
+        📷 Você adicionou uma foto — anexe ela manualmente no WhatsApp antes de enviar.
+      </div>
 
     </div>
 
@@ -600,22 +603,23 @@ function renderResumo() {
   let msg = `🚨 *OCORRÊNCIA REGISTRADA*\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📄 *Nota:* ${r.Nota}\n`;
-  msg += `🚛 *Motorista:* ${r.Motorista||'—'}\n`;
-  msg += `🏬 *Empresa:* ${r.Empresa||'—'}\n`;
+  msg += `*Motorista:* ${r.Motorista||'—'}\n`;
+  msg += `*Empresa:* ${r.Empresa||'—'}\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `⚠️ *Tipo:* ${tipo}\n`;
-  msg += `🔢 *Qtd Item/Cx:* ${qtd}\n`;
-  if (cod)  msg += `📦 *Cód. Produto:* ${cod}\n`;
-  if (desc) msg += `📝 *Descrição:* ${desc}\n`;
+  msg += `*Tipo:* ${tipo}\n`;
+  msg += `*Qtd Item/Cx:* ${qtd}\n`;
+  if (cod)  msg += `*Cód. Produto:* ${cod}\n`;
+  if (desc) msg += `*Descrição:* ${desc}\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `🕐 *Abertura:* ${hoje}\n`;
-  msg += `🔴 *Status:* EM ABERTO`;
+  msg += `🕐 *Abertura:* ${hoje}  🔴 *Status:* EM ABERTO`;
 
   document.getElementById('msg-preview').textContent = msg;
 }
 
 // ─── WHATSAPP ─────────────────────────────────────────────────────────────────
 function enviarWhatsApp() {
+  const temFoto = document.getElementById('foto-preview').style.display !== 'none';
+  if (temFoto) document.getElementById('foto-aviso').style.display = 'block';
   const msg = document.getElementById('msg-preview').textContent;
   const url = WHATSAPP_NUMERO
     ? `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(msg)}`
